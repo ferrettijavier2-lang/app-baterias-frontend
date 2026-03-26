@@ -7,7 +7,7 @@ import { Battery, ShoppingCart, Wallet, ShieldCheck, Printer, Trash2, Pencil, Ke
 
 const DEFAULT_ADMIN_PASSWORD = "1234";
 const STORAGE_KEY = "baterias_app_data_vfinal";
-const API_URL = "https://app-baterias.onrender.com/api";
+const API_URL = "https://backend-baterias-limpio.onrender.com/api";
 
 const productosIniciales = [
   { id: 1, nombre: "Batería 12x65", precio: 120000, stock: 8, casco: 15000 },
