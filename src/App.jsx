@@ -24,8 +24,8 @@ const formatearPrecio = (valor) =>
   }).format(valor || 0);
 
 export default function App() {
-  const [vista, setVista] = useState("inicio"); // inicio | cliente | admin
-  const [pantallaCliente, setPantallaCliente] = useState("inicio"); // inicio | catalogo | comprar | saldar
+  const [vista, setVista] = useState("inicio");
+  const [pantallaCliente, setPantallaCliente] = useState("inicio");
   const [adminPass, setAdminPass] = useState("");
 
   const [productos, setProductos] = useState(productosIniciales);
@@ -42,6 +42,11 @@ export default function App() {
 
   const [clienteConsulta, setClienteConsulta] = useState("");
   const [resultadoCliente, setResultadoCliente] = useState(null);
+
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevoPrecio, setNuevoPrecio] = useState("");
+  const [nuevoStock, setNuevoStock] = useState("");
+  const [nuevoCasco, setNuevoCasco] = useState("");
 
   const hoyTexto = new Date().toLocaleDateString("es-AR");
 
@@ -216,13 +221,54 @@ export default function App() {
     }
   };
 
+  const agregarProducto = () => {
+    if (!nuevoNombre || !nuevoPrecio || !nuevoStock || !nuevoCasco) {
+      alert("Completá todos los campos del producto.");
+      return;
+    }
+
+    const nuevoProducto = {
+      id: Date.now(),
+      nombre: nuevoNombre,
+      precio: Number(nuevoPrecio),
+      stock: Number(nuevoStock),
+      casco: Number(nuevoCasco),
+    };
+
+    setProductos((prev) => [...prev, nuevoProducto]);
+    setNuevoNombre("");
+    setNuevoPrecio("");
+    setNuevoStock("");
+    setNuevoCasco("");
+    alert("Producto agregado.");
+  };
+
+  const editarProducto = (id, campo, valor) => {
+    setProductos((prev) =>
+      prev.map((producto) =>
+        producto.id === id
+          ? {
+              ...producto,
+              [campo]:
+                campo === "nombre" ? valor : Number(valor),
+            }
+          : producto
+      )
+    );
+  };
+
+  const eliminarProducto = (id) => {
+    const confirmar = window.confirm("¿Seguro que querés eliminar este producto?");
+    if (!confirmar) return;
+    setProductos((prev) => prev.filter((producto) => producto.id !== id));
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#e2e8f0", padding: 20, fontFamily: "Arial, sans-serif" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <h1 style={{ fontSize: 36, fontWeight: 900 }}>Sistema de Baterías</h1>
         <p style={{ color: "#475569" }}>Autogestión minorista</p>
 
-        {/* INICIO */}
         {vista === "inicio" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 30 }}>
             <div style={{ background: "white", padding: 30, borderRadius: 20 }}>
@@ -246,7 +292,6 @@ export default function App() {
           </div>
         )}
 
-        {/* CLIENTE */}
         {vista === "cliente" && (
           <div style={{ marginTop: 30 }}>
             <button onClick={() => setVista("inicio")}>Volver</button>
@@ -365,17 +410,6 @@ export default function App() {
                     <p><strong>Teléfono:</strong> {resultadoCliente.telefono}</p>
                     <p><strong>Deuda:</strong> {formatearPrecio(resultadoCliente.deudaDinero)}</p>
                     <p><strong>Baterías viejas pendientes:</strong> {resultadoCliente.bateriasViejas}</p>
-
-                    {resultadoCliente.historial?.length > 0 && (
-                      <>
-                        <h3>Historial</h3>
-                        {resultadoCliente.historial.map((item, idx) => (
-                          <div key={idx} style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
-                            {item}
-                          </div>
-                        ))}
-                      </>
-                    )}
                   </div>
                 )}
               </div>
@@ -383,7 +417,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN */}
         {vista === "admin" && (
           <div style={{ marginTop: 30 }}>
             <button onClick={() => setVista("inicio")}>Volver</button>
@@ -391,11 +424,70 @@ export default function App() {
             <div style={{ marginTop: 20, background: "white", padding: 30, borderRadius: 20 }}>
               <h2>Panel de Administrador</h2>
 
+              <div style={{ marginTop: 30, marginBottom: 40, padding: 20, background: "#f8fafc", borderRadius: 20 }}>
+                <h3>Agregar nuevo producto</h3>
+
+                <input
+                  placeholder="Nombre"
+                  value={nuevoNombre}
+                  onChange={(e) => setNuevoNombre(e.target.value)}
+                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
+                />
+                <input
+                  type="number"
+                  placeholder="Precio"
+                  value={nuevoPrecio}
+                  onChange={(e) => setNuevoPrecio(e.target.value)}
+                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
+                />
+                <input
+                  type="number"
+                  placeholder="Stock"
+                  value={nuevoStock}
+                  onChange={(e) => setNuevoStock(e.target.value)}
+                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
+                />
+                <input
+                  type="number"
+                  placeholder="Casco"
+                  value={nuevoCasco}
+                  onChange={(e) => setNuevoCasco(e.target.value)}
+                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
+                />
+
+                <button onClick={agregarProducto}>Agregar producto</button>
+              </div>
+
               <div style={{ marginTop: 20 }}>
-                <h3>Productos</h3>
+                <h3>Editar productos</h3>
+
                 {productos.map((producto) => (
-                  <div key={producto.id} style={{ padding: 10, borderBottom: "1px solid #ddd" }}>
-                    <strong>{producto.nombre}</strong> — {formatearPrecio(producto.precio)} — Stock: {producto.stock} — Casco: {formatearPrecio(producto.casco)}
+                  <div key={producto.id} style={{ padding: 15, borderBottom: "1px solid #ddd", marginBottom: 10 }}>
+                    <input
+                      value={producto.nombre}
+                      onChange={(e) => editarProducto(producto.id, "nombre", e.target.value)}
+                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
+                    />
+                    <input
+                      type="number"
+                      value={producto.precio}
+                      onChange={(e) => editarProducto(producto.id, "precio", e.target.value)}
+                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
+                    />
+                    <input
+                      type="number"
+                      value={producto.stock}
+                      onChange={(e) => editarProducto(producto.id, "stock", e.target.value)}
+                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
+                    />
+                    <input
+                      type="number"
+                      value={producto.casco}
+                      onChange={(e) => editarProducto(producto.id, "casco", e.target.value)}
+                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
+                    />
+
+                    <button onClick={() => eliminarProducto(producto.id)}>Eliminar producto</button>
                   </div>
                 ))}
               </div>
