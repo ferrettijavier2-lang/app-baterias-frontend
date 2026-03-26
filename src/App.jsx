@@ -117,11 +117,15 @@ export default function App() {
     setMontoEntregado("");
   };
 
-  const loginAdmin = () => {
-    if (adminPass === DEFAULT_ADMIN_PASSWORD) {
-      alert("Ingreso administrador correcto");
-    } else alert("Clave incorrecta");
-  };
+ const loginAdmin = () => {
+  if (adminPass === DEFAULT_ADMIN_PASSWORD) {
+    setVista("admin");
+     setAdminPass("");
+}
+  } else {
+    alert("Clave incorrecta");
+  }
+};
 
   const seleccionarProducto = (producto) => {
     if (producto.stock <= 0) return alert("No hay stock disponible.");
@@ -201,7 +205,46 @@ export default function App() {
         {vista === "cliente" && (
           <div style={{ marginTop: 30 }}>
             <button onClick={() => setVista("inicio")}>Volver</button>
+        {vista === "admin" && (
+          <div style={{ marginTop: 30 }}>
+            <button onClick={() => setVista("inicio")}>Volver</button>
 
+            <div style={{ marginTop: 20, background: "white", padding: 30, borderRadius: 20 }}>
+              <h2>Panel de Administrador</h2>
+
+              <div style={{ marginTop: 20 }}>
+                <h3>Productos</h3>
+                {productos.map((producto) => (
+                  <div key={producto.id} style={{ padding: 10, borderBottom: "1px solid #ddd" }}>
+                    <strong>{producto.nombre}</strong> — {formatearPrecio(producto.precio)} — Stock: {producto.stock} — Casco: {formatearPrecio(producto.casco)}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 30 }}>
+                <h3>Clientes</h3>
+                {Object.entries(clientes).map(([nombre, cliente], index) => (
+                  <div key={index} style={{ padding: 10, borderBottom: "1px solid #ddd" }}>
+                    <strong>{nombre}</strong> — Tel: {cliente.telefono} — Deuda: {formatearPrecio(cliente.deudaDinero)} — Baterías viejas: {cliente.bateriasViejas}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 30 }}>
+                <h3>Ventas</h3>
+                {ventas.length === 0 ? (
+                  <p>No hay ventas registradas.</p>
+                ) : (
+                  ventas.map((venta, index) => (
+                    <div key={index} style={{ padding: 10, borderBottom: "1px solid #ddd" }}>
+                      <strong>{venta.orden}</strong> — {venta.cliente} — {venta.producto} — {formatearPrecio(venta.total)} — {venta.metodo}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
             {pantallaCliente === "inicio" && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 20 }}>
                 <div style={{ background: "white", padding: 30, borderRadius: 20 }}>
