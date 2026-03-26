@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const DEFAULT_ADMIN_PASSWORD = "1234";
-const STORAGE_KEY = "baterias_app_data_vfinal";
-const API_URL = "https://backend-baterias-limpio.onrender.com/api";
+const STORAGE_KEY = "baterias_app_data_v2";
 
 const productosIniciales = [
   { id: 1, nombre: "JALIT-12X48", precio: 119000, stock: 9, casco: 6000 },
@@ -28,8 +27,8 @@ export default function App() {
   const [pantallaCliente, setPantallaCliente] = useState("inicio");
   const [adminPass, setAdminPass] = useState("");
 
-  const [productos, setProductos] = useState(productosIniciales);
-  const [clientes, setClientes] = useState(clientesIniciales);
+  const [productos, setProductos] = useState([]);
+  const [clientes, setClientes] = useState({});
   const [ventas, setVentas] = useState([]);
 
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
@@ -48,56 +47,35 @@ export default function App() {
   const [nuevoStock, setNuevoStock] = useState("");
   const [nuevoCasco, setNuevoCasco] = useState("");
 
-  const hoyTexto = new Date().toLocaleDateString("es-AR");
+  const [cobros, setCobros] = useState({});
 
   useEffect(() => {
-    const cargarDatos = async () => {
+    const guardado = localStorage.getItem(STORAGE_KEY);
+
+    if (guardado) {
       try {
-        const res = await fetch(`${API_URL}/data`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.productos) setProductos(data.productos);
-          if (data.clientes) setClientes(data.clientes);
-          if (data.ventas) setVentas(data.ventas);
-          return;
-        }
-      } catch (error) {
-        console.warn("No se pudo conectar al backend, usando modo local.", error);
+        const data = JSON.parse(guardado);
+        setProductos(data.productos || productosIniciales);
+        setClientes(data.clientes || clientesIniciales);
+        setVentas(data.ventas || []);
+      } catch (e) {
+        console.error("Error cargando datos guardados", e);
+        setProductos(productosIniciales);
+        setClientes(clientesIniciales);
+        setVentas([]);
       }
-
-      const guardado = localStorage.getItem(STORAGE_KEY);
-      if (guardado) {
-        try {
-          const data = JSON.parse(guardado);
-          if (data.productos) setProductos(data.productos);
-          if (data.clientes) setClientes(data.clientes);
-          if (data.ventas) setVentas(data.ventas);
-        } catch (e) {
-          console.error("Error cargando datos locales", e);
-        }
-      }
-    };
-
-    cargarDatos();
+    } else {
+      setProductos(productosIniciales);
+      setClientes(clientesIniciales);
+      setVentas([]);
+    }
   }, []);
 
   useEffect(() => {
+    if (productos.length === 0 && Object.keys(clientes).length === 0 && ventas.length === 0) return;
+
     const payload = { productos, clientes, ventas };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-
-    const guardarRemoto = async () => {
-      try {
-        await fetch(`${API_URL}/data`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } catch (error) {
-        console.warn("No se pudo guardar en backend, quedó guardado localmente.", error);
-      }
-    };
-
-    guardarRemoto();
   }, [productos, clientes, ventas]);
 
   const numeroOrden = useMemo(
@@ -166,7 +144,6 @@ export default function App() {
       total: totalFinal,
       cascoPendiente: !entregaCasco,
       fecha: new Date().toLocaleString("es-AR"),
-      fechaDia: hoyTexto,
       deudaGenerada,
       telefono: telefonoCompra,
     };
@@ -240,7 +217,7 @@ export default function App() {
     setNuevoPrecio("");
     setNuevoStock("");
     setNuevoCasco("");
-    alert("Producto agregado.");
+    alert("Producto agregado y guardado.");
   };
 
   const editarProducto = (id, campo, valor) => {
@@ -249,8 +226,7 @@ export default function App() {
         producto.id === id
           ? {
               ...producto,
-              [campo]:
-                campo === "nombre" ? valor : Number(valor),
+              [campo]: campo === "nombre" ? valor : Number(valor),
             }
           : producto
       )
@@ -263,6 +239,46 @@ export default function App() {
     setProductos((prev) => prev.filter((producto) => producto.id !== id));
   };
 
+  const actualizarCobro = (clienteNombre, campo, valor) => {
+    setCobros((prev) => ({
+      ...prev,
+      [clienteNombre]: {
+        ...prev[clienteNombre],
+        [campo]: valor,
+      },
+    }));
+  };
+
+  const aplicarCobro = (clienteNombre) => {
+    const cliente = clientes[clienteNombre];
+    const cobro = cobros[clienteNombre] || {};
+    const pagoDinero = Number(cobro.pagoDinero || 0);
+    const entregaViejas = Number(cobro.entregaViejas || 0);
+
+    const nuevaDeuda = Math.max(cliente.deudaDinero - pagoDinero, 0);
+    const nuevasViejas = Math.max(cliente.bateriasViejas - entregaViejas, 0);
+
+    setClientes((prev) => ({
+      ...prev,
+      [clienteNombre]: {
+        ...prev[clienteNombre],
+        deudaDinero: nuevaDeuda,
+        bateriasViejas: nuevasViejas,
+        historial: [
+          `Cobro aplicado · ${new Date().toLocaleString("es-AR")} · Pago: ${formatearPrecio(pagoDinero)} · Baterías entregadas: ${entregaViejas}`,
+          ...(prev[clienteNombre].historial || []),
+        ],
+      },
+    }));
+
+    setCobros((prev) => ({
+      ...prev,
+      [clienteNombre]: { pagoDinero: "", entregaViejas: "" },
+    }));
+
+    alert("Cobro aplicado correctamente.");
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "#e2e8f0", padding: 20, fontFamily: "Arial, sans-serif" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -273,9 +289,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 30 }}>
             <div style={{ background: "white", padding: 30, borderRadius: 20 }}>
               <h2>Minorista</h2>
-              <button onClick={() => { setVista("cliente"); setPantallaCliente("inicio"); }}>
-                Ingresar
-              </button>
+              <button onClick={() => { setVista("cliente"); setPantallaCliente("inicio"); }}>Ingresar</button>
             </div>
 
             <div style={{ background: "white", padding: 30, borderRadius: 20 }}>
@@ -327,65 +341,34 @@ export default function App() {
               <div style={{ marginTop: 20, background: "white", padding: 30, borderRadius: 20 }}>
                 <h2>Detalle de compra</h2>
 
-                <input
-                  placeholder="Nombre del cliente"
-                  value={clienteCompra}
-                  onChange={(e) => setClienteCompra(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
-
-                <input
-                  placeholder="Teléfono"
-                  value={telefonoCompra}
-                  onChange={(e) => setTelefonoCompra(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
+                <input placeholder="Nombre del cliente" value={clienteCompra} onChange={(e) => setClienteCompra(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
+                <input placeholder="Teléfono" value={telefonoCompra} onChange={(e) => setTelefonoCompra(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
 
                 <p><strong>Producto:</strong> {productoSeleccionado.nombre}</p>
                 <p><strong>Precio:</strong> {formatearPrecio(productoSeleccionado.precio)}</p>
                 <p><strong>Orden:</strong> {numeroOrden}</p>
 
                 <label style={{ display: "block", marginBottom: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={entregaCasco}
-                    onChange={() => setEntregaCasco(!entregaCasco)}
-                  />{" "}
-                  Entrega batería vieja
+                  <input type="checkbox" checked={entregaCasco} onChange={() => setEntregaCasco(!entregaCasco)} /> Entrega batería vieja
                 </label>
 
                 <label style={{ display: "block", marginBottom: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={ventaACuenta}
-                    onChange={() => setVentaACuenta(!ventaACuenta)}
-                  />{" "}
-                  Venta a cuenta
+                  <input type="checkbox" checked={ventaACuenta} onChange={() => setVentaACuenta(!ventaACuenta)} /> Venta a cuenta
                 </label>
 
                 {ventaACuenta && (
-                  <input
-                    type="number"
-                    placeholder="Monto entregado"
-                    value={montoEntregado}
-                    onChange={(e) => setMontoEntregado(e.target.value)}
-                    style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                  />
+                  <input type="number" placeholder="Monto entregado" value={montoEntregado} onChange={(e) => setMontoEntregado(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
                 )}
 
                 <h3>Métodos de pago</h3>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 15 }}>
                   {metodosPago.map((metodo) => (
-                    <button key={metodo} onClick={() => setMetodoSeleccionado(metodo)}>
-                      {metodo}
-                    </button>
+                    <button key={metodo} onClick={() => setMetodoSeleccionado(metodo)}>{metodo}</button>
                   ))}
                 </div>
 
                 <p><strong>Total final:</strong> {formatearPrecio(totalFinal)}</p>
-                {valorCuota > 0 && (
-                  <p><strong>Valor por cuota:</strong> {formatearPrecio(valorCuota)}</p>
-                )}
+                {valorCuota > 0 && <p><strong>Valor por cuota:</strong> {formatearPrecio(valorCuota)}</p>}
 
                 <button onClick={confirmarVenta}>Confirmar venta</button>
               </div>
@@ -395,12 +378,7 @@ export default function App() {
               <div style={{ marginTop: 20, background: "white", padding: 30, borderRadius: 20 }}>
                 <h2>Saldar cuenta</h2>
 
-                <input
-                  placeholder="Ingresar nombre del cliente"
-                  value={clienteConsulta}
-                  onChange={(e) => setClienteConsulta(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
+                <input placeholder="Ingresar nombre del cliente" value={clienteConsulta} onChange={(e) => setClienteConsulta(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
 
                 <button onClick={buscarCliente}>Buscar</button>
 
@@ -427,33 +405,10 @@ export default function App() {
               <div style={{ marginTop: 30, marginBottom: 40, padding: 20, background: "#f8fafc", borderRadius: 20 }}>
                 <h3>Agregar nuevo producto</h3>
 
-                <input
-                  placeholder="Nombre"
-                  value={nuevoNombre}
-                  onChange={(e) => setNuevoNombre(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
-                <input
-                  type="number"
-                  placeholder="Precio"
-                  value={nuevoPrecio}
-                  onChange={(e) => setNuevoPrecio(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
-                <input
-                  type="number"
-                  placeholder="Stock"
-                  value={nuevoStock}
-                  onChange={(e) => setNuevoStock(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
-                <input
-                  type="number"
-                  placeholder="Casco"
-                  value={nuevoCasco}
-                  onChange={(e) => setNuevoCasco(e.target.value)}
-                  style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }}
-                />
+                <input placeholder="Nombre" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
+                <input type="number" placeholder="Precio" value={nuevoPrecio} onChange={(e) => setNuevoPrecio(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
+                <input type="number" placeholder="Stock" value={nuevoStock} onChange={(e) => setNuevoStock(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
+                <input type="number" placeholder="Casco" value={nuevoCasco} onChange={(e) => setNuevoCasco(e.target.value)} style={{ display: "block", marginBottom: 10, padding: 10, width: "100%" }} />
 
                 <button onClick={agregarProducto}>Agregar producto</button>
               </div>
@@ -463,40 +418,41 @@ export default function App() {
 
                 {productos.map((producto) => (
                   <div key={producto.id} style={{ padding: 15, borderBottom: "1px solid #ddd", marginBottom: 10 }}>
-                    <input
-                      value={producto.nombre}
-                      onChange={(e) => editarProducto(producto.id, "nombre", e.target.value)}
-                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
-                    />
-                    <input
-                      type="number"
-                      value={producto.precio}
-                      onChange={(e) => editarProducto(producto.id, "precio", e.target.value)}
-                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
-                    />
-                    <input
-                      type="number"
-                      value={producto.stock}
-                      onChange={(e) => editarProducto(producto.id, "stock", e.target.value)}
-                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
-                    />
-                    <input
-                      type="number"
-                      value={producto.casco}
-                      onChange={(e) => editarProducto(producto.id, "casco", e.target.value)}
-                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
-                    />
-
+                    <input value={producto.nombre} onChange={(e) => editarProducto(producto.id, "nombre", e.target.value)} style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }} />
+                    <input type="number" value={producto.precio} onChange={(e) => editarProducto(producto.id, "precio", e.target.value)} style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }} />
+                    <input type="number" value={producto.stock} onChange={(e) => editarProducto(producto.id, "stock", e.target.value)} style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }} />
+                    <input type="number" value={producto.casco} onChange={(e) => editarProducto(producto.id, "casco", e.target.value)} style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }} />
                     <button onClick={() => eliminarProducto(producto.id)}>Eliminar producto</button>
                   </div>
                 ))}
               </div>
 
               <div style={{ marginTop: 30 }}>
-                <h3>Clientes</h3>
+                <h3>Clientes / Cobro de deuda</h3>
                 {Object.entries(clientes).map(([nombre, cliente], index) => (
-                  <div key={index} style={{ padding: 10, borderBottom: "1px solid #ddd" }}>
-                    <strong>{nombre}</strong> — Tel: {cliente.telefono} — Deuda: {formatearPrecio(cliente.deudaDinero)} — Baterías viejas: {cliente.bateriasViejas}
+                  <div key={index} style={{ padding: 15, borderBottom: "1px solid #ddd", marginBottom: 10 }}>
+                    <p><strong>{nombre}</strong></p>
+                    <p>Tel: {cliente.telefono}</p>
+                    <p>Deuda: {formatearPrecio(cliente.deudaDinero)}</p>
+                    <p>Baterías viejas: {cliente.bateriasViejas}</p>
+
+                    <input
+                      type="number"
+                      placeholder="Cuánto pagó"
+                      value={cobros[nombre]?.pagoDinero || ""}
+                      onChange={(e) => actualizarCobro(nombre, "pagoDinero", e.target.value)}
+                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
+                    />
+
+                    <input
+                      type="number"
+                      placeholder="Cuántas baterías viejas entregó"
+                      value={cobros[nombre]?.entregaViejas || ""}
+                      onChange={(e) => actualizarCobro(nombre, "entregaViejas", e.target.value)}
+                      style={{ display: "block", marginBottom: 8, padding: 10, width: "100%" }}
+                    />
+
+                    <button onClick={() => aplicarCobro(nombre)}>Aplicar cobro</button>
                   </div>
                 ))}
               </div>
@@ -519,3 +475,4 @@ export default function App() {
       </div>
     </div>
   );
+}
