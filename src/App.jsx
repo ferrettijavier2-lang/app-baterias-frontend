@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Battery, ShoppingCart, Wallet, ShieldCheck, Printer, Search } from "lucide-react";
 
-const DEFAULT_ADMIN_PASSWORD = "1234";
+const DEFAULT_ADMIN_PASSWORD = "bateria2026";
 const STORAGE_KEY = "baterias_app_data_vfinal";
 const API_URL = "https://backend-baterias-limpio.onrender.com/api";
 
